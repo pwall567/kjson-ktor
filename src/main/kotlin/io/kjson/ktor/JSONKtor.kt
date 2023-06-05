@@ -1,7 +1,7 @@
 /*
  * @(#) JSONKtor.kt
  *
- * kjson-ktor  Reflection-based JSON serialization and deserialization for ktor
+ * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,27 +45,20 @@ import io.ktor.http.content.TextContent
 import io.ktor.serialization.ContentConverter
 import io.ktor.util.reflect.TypeInfo
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.charsets.Charset
 
 import io.kjson.JSONConfig
 import io.kjson.JSONCoPipeline
 import io.kjson.JSONCoStreamer
 import io.kjson.JSONDeserializer
-import io.kjson.coStringifyJSON
 import io.kjson.stringifyJSON
-import io.kjson.toKType
 import io.kjson.util.JSONDeserializerCoPipeline
-import io.kjson.util.KtorByteChannelCoAcceptor
 import net.pwall.pipeline.ChannelCoAcceptor
-import net.pwall.pipeline.IntCoAcceptor
 import net.pwall.pipeline.codec.CoDecoderFactory
-import net.pwall.pipeline.codec.CoEncoderFactory
 import net.pwall.pipeline.simpleCoAcceptor
-import net.pwall.util.CoOutputFlushable
 
 /**
- * JSON [ContentConverter] for `ktor`.  Converts to/from JSON using the [kjson](https://github.com/pwall567/kjson)
+ * JSON [ContentConverter] for Ktor.  Converts to/from JSON using the [kjson](https://github.com/pwall567/kjson)
  * library.
  *
  * @author  Peter Wall
@@ -86,13 +79,13 @@ class JSONKtor(
         value: Any?,
     ): OutgoingContent? = when {
         !contentType.match(this.contentType) -> null
-        config.streamOutput -> createWriteChannelContent(value, contentType, charset, config)
+        config.streamOutput -> createStreamedJSONContent(value, contentType, charset, config)
         else -> TextContent(value.stringifyJSON(config), contentType.withCharset(charset))
     }
 
     /**
      * Deserialize JSON input to a specified type.  If the top-level type is a [Channel] or a [Flow], the object is
-     * returned immediately and the data is streamed asynchronously.
+     * returned immediately and the data is streamed asynchronously into it.
      */
     override suspend fun deserialize(
         charset: Charset,
@@ -106,7 +99,7 @@ class JSONKtor(
 
     private suspend fun deserializeFlow(
         charset: Charset,
-        type: KType,
+        type: KType, // Flow parameter type
         content: ByteReadChannel,
     ): Flow<Any?> = flow {
         val pipeline = CoDecoderFactory.getDecoder(
@@ -124,7 +117,7 @@ class JSONKtor(
     @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun deserializeChannel(
         charset: Charset,
-        type: KType,
+        type: KType, // Channel parameter type
         content: ByteReadChannel,
     ): ReceiveChannel<Any?> = CoroutineScope(Job()).produce(JSONReceiveCoroutineContext(type)) {
         // TODO check use of CoroutineScope in above line
@@ -154,61 +147,8 @@ class JSONKtor(
         )
         content.copyToPipeline(pipeline, config.readBufferSize)
         pipeline.close()
-        val kotlinType = typeInfo.kotlinType
-        return if (kotlinType != null)
-            JSONDeserializer.deserialize(kotlinType, pipeline.result, config)
-        else
-            JSONDeserializer.deserialize(typeInfo.type, pipeline.result, config)
-    }
-
-    companion object {
-
-        fun TypeInfo.getParamType(index: Int = 0): KType {
-            val type: KType = kotlinType ?: reifiedType.toKType()
-            return type.arguments.getOrNull(index)?.type ?:
-                    throw JSONKtorException("Insufficient type information to deserialize generic class")
-        }
-
-        fun createWriteChannelContent(
-            value: Any?,
-            contentType: ContentType = ContentType.Application.Json,
-            charset: java.nio.charset.Charset = Charsets.UTF_8,
-            config: JSONConfig = JSONConfig.defaultConfig,
-        ): OutgoingContent = object : WriteChannelContent() {
-
-            override val contentType: ContentType = contentType.withCharset(charset)
-
-            override suspend fun writeTo(channel: ByteWriteChannel) {
-                val flushable = Flushable(
-                    downstream = CoEncoderFactory.getEncoder(
-                        charset =  charset,
-                        downstream = KtorByteChannelCoAcceptor(channel),
-                    )
-                )
-                value.coStringifyJSON(config, flushable)
-                flushable.close()
-            }
-
-        }
-
-        /**
-         * Copy data from the [ByteReadChannel] to an [IntCoAcceptor].
-         */
-        suspend fun ByteReadChannel.copyToPipeline(
-            acceptor: IntCoAcceptor<*>,
-            bufferSize: Int = DEFAULT_BUFFER_SIZE,
-        ) {
-            val buffer = ByteArray(bufferSize)
-            while (!isClosedForRead) {
-                val bytesRead = readAvailable(buffer, 0, buffer.size)
-                if (bytesRead < 0)
-                    break
-                for (i in 0 until bytesRead)
-                    acceptor.accept(buffer[i].toInt() and 0xFF)
-            }
-            acceptor.close()
-        }
-
+        typeInfo.kotlinType?.let { return JSONDeserializer.deserialize(it, pipeline.result, config) }
+        return  JSONDeserializer.deserialize(typeInfo.type, pipeline.result, config)
     }
 
     /**
@@ -218,25 +158,6 @@ class JSONKtor(
             AbstractCoroutineContextElement(JSONReceiveCoroutineContext) {
 
         companion object Key : CoroutineContext.Key<JSONReceiveCoroutineContext>
-
-    }
-
-    /**
-     * An implementation of [CoOutputFlushable] that propagates the `flush()` command to the downstream [IntCoAcceptor].
-     */
-    class Flushable(private val downstream: IntCoAcceptor<Unit>) : CoOutputFlushable() {
-
-        override suspend fun invoke(p1: Char) {
-            downstream.accept(p1.code)
-        }
-
-        override suspend fun flush() {
-            downstream.flush()
-        }
-
-        suspend fun close() {
-            downstream.close()
-        }
 
     }
 

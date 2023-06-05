@@ -1,5 +1,5 @@
 /*
- * @(#) JSONDeserializerCoPipeline.kt
+ * @(#) CoOutputChannel.kt
  *
  * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
@@ -25,28 +25,26 @@
 
 package io.kjson.util
 
-import kotlin.reflect.KType
-
-import io.kjson.JSONConfig
-import io.kjson.JSONDeserializer
-import io.kjson.JSONValue
-import net.pwall.pipeline.AbstractCoPipeline
-import net.pwall.pipeline.CoAcceptor
+import net.pwall.pipeline.IntCoAcceptor
+import net.pwall.util.CoOutputFlushable
 
 /**
- * A pipeline implementation to take a [JSONValue] and emit a deserialized object.
+ * A class to accept a byte stream in the manner of a [CoOutputFlushable] and forward it to an [IntCoAcceptor].
  *
  * @author  Peter Wall
  */
-class JSONDeserializerCoPipeline<E, R>(
-    private val type: KType,
-    downstream: CoAcceptor<E, R>,
-    private val config: JSONConfig,
-) : AbstractCoPipeline<JSONValue?, E, R>(downstream) {
+class CoOutputChannel(private val downstream: IntCoAcceptor<*>) : CoOutputFlushable() {
 
-    override suspend fun acceptObject(value: JSONValue?) {
-        @Suppress("UNCHECKED_CAST")
-        emit(JSONDeserializer.deserialize(type, value, config) as E)
+    override suspend fun invoke(ch: Char) {
+        downstream.accept(ch.code)
+    }
+
+    override suspend fun flush() {
+        downstream.flush()
+    }
+
+    suspend fun close() {
+        downstream.close()
     }
 
 }

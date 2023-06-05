@@ -1,5 +1,5 @@
 /*
- * @(#) JSONDeserializerCoPipeline.kt
+ * @(#) KtorByteChannelCoAcceptor.kt
  *
  * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
@@ -23,30 +23,42 @@
  * SOFTWARE.
  */
 
-package io.kjson.util
+package io.kjson.ktor.io
 
-import kotlin.reflect.KType
+import io.ktor.utils.io.ByteWriteChannel
 
-import io.kjson.JSONConfig
-import io.kjson.JSONDeserializer
-import io.kjson.JSONValue
-import net.pwall.pipeline.AbstractCoPipeline
-import net.pwall.pipeline.CoAcceptor
+import net.pwall.pipeline.AbstractIntCoAcceptor
+import net.pwall.pipeline.IntCoAcceptor
 
 /**
- * A pipeline implementation to take a [JSONValue] and emit a deserialized object.
+ * Implementation of [IntCoAcceptor] to send data to a Ktor [ByteWriteChannel].
  *
  * @author  Peter Wall
  */
-class JSONDeserializerCoPipeline<E, R>(
-    private val type: KType,
-    downstream: CoAcceptor<E, R>,
-    private val config: JSONConfig,
-) : AbstractCoPipeline<JSONValue?, E, R>(downstream) {
+class KtorByteChannelCoAcceptor(private val channel: ByteWriteChannel) : AbstractIntCoAcceptor<Unit>() {
 
-    override suspend fun acceptObject(value: JSONValue?) {
-        @Suppress("UNCHECKED_CAST")
-        emit(JSONDeserializer.deserialize(type, value, config) as E)
+    /**
+     * Accept a value, after `closed` check and test for end of data.  Send the value to the [ByteWriteChannel].
+     *
+     * @param   value       the input value
+     */
+    override suspend fun acceptInt(value: Int) {
+        channel.writeByte(value.toByte())
+    }
+
+    /**
+     * Close the acceptor.
+     */
+    override suspend fun close() {
+        super.close()
+        channel.close(null)
+    }
+
+    /**
+     * Flush the output to the channel.
+     */
+    override suspend fun flush() {
+        channel.flush()
     }
 
 }

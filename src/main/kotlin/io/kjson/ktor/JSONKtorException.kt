@@ -1,7 +1,7 @@
 /*
  * @(#) JSONKtorException.kt
  *
- * kjson-ktor  Reflection-based JSON serialization and deserialization for ktor
+ * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,4 +32,4 @@ import io.kjson.JSONException
  *
  * @author  Peter Wall
  */
-class JSONKtorException(message: String) : JSONException(message)
+open class JSONKtorException(message: String) : JSONException(message)

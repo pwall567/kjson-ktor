@@ -1,7 +1,7 @@
 /*
  * @(#) JSONKtorFunctions.kt
  *
- * kjson-ktor  Reflection-based JSON serialization and deserialization for ktor
+ * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,6 +25,9 @@
 
 package io.kjson.ktor
 
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
+
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -33,25 +36,39 @@ import io.ktor.client.request.prepareRequest
 import io.ktor.client.request.setBody
 import io.ktor.client.utils.EmptyContent
 import io.ktor.http.ContentType
+import io.ktor.http.HeaderValue
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
 import io.ktor.http.headersOf
+import io.ktor.http.parseHeaderValue
 import io.ktor.http.takeFrom
 import io.ktor.http.withCharset
+import io.ktor.http.content.OutgoingContent
 import io.ktor.serialization.Configuration
-import io.ktor.server.plugins.NotFoundException
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.response.respond
+import io.ktor.util.reflect.TypeInfo
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.charsets.Charset
 
 import io.kjson.JSONCoPipeline
 import io.kjson.JSONConfig
 import io.kjson.JSONDeserializer
-import io.kjson.ktor.JSONKtor.Companion.copyToPipeline
-import net.pwall.pipeline.codec.CoDecoderFactory
+import io.kjson.coStringifyJSON
+import io.kjson.toKType
+import io.kjson.ktor.io.KtorByteChannelCoAcceptor
+import io.kjson.ktor.io.KtorByteChannelOutput
+import io.kjson.ktor.io.KtorOutgoingContent
+import io.kjson.util.CoOutputChannel
+import net.pwall.pipeline.IntCoAcceptor
 import net.pwall.pipeline.simpleCoAcceptor
+import net.pwall.pipeline.codec.CoDecoderFactory
+import net.pwall.pipeline.codec.CoEncoderFactory
+import net.pwall.util.CoOutput
 
 /**
  * Register the `kjson` content converter, configuring the `JSONConfig` with a lambda.
@@ -111,6 +128,55 @@ fun contentTypeJSON(charset: Charset): Headers =
         headersOf(HttpHeaders.ContentType, applicationJSON.withCharset(charset).toString())
 
 /**
+ * Create a [KtorByteChannelOutput] (convenience function).
+ */
+fun channelOutput(
+    channel: ByteWriteChannel,
+    charset: Charset = Charsets.UTF_8,
+) = KtorByteChannelOutput(channel, charset)
+
+/**
+ * Create an [OutgoingContent] to stream JSON output.
+ */
+fun createStreamedJSONContent(
+    value: Any?,
+    contentType: ContentType = ContentType.Application.Json,
+    charset: Charset = Charsets.UTF_8,
+    config: JSONConfig = JSONConfig.defaultConfig,
+): OutgoingContent = KtorOutgoingContent(contentType.withCharset(charset)) {
+    val output = CoOutputChannel(
+        downstream = CoEncoderFactory.getEncoder(
+            charset = charset,
+            downstream = KtorByteChannelCoAcceptor(this),
+        )
+    )
+    value.coStringifyJSON(config, output)
+    output.close()
+}
+
+/**
+ * Respond to a call using streamed data.
+ *
+ * @param   contentType     the [ContentType]
+ * @param   status          the [HttpStatusCode] being returned
+ * @param   contentLength   the content length (if known)
+ * @param   charset         the [Charset]
+ * @param   producer        the producer function which will write the data to a [CoOutput] (supplied as receiver)
+ */
+suspend fun ApplicationCall.respondStream(
+    contentType: ContentType? = null,
+    status: HttpStatusCode? = null,
+    contentLength: Long? = null,
+    charset: Charset? = null,
+    producer: suspend CoOutput.() -> Unit
+) {
+    respond(KtorOutgoingContent(contentType, status, contentLength) {
+        val pipeline = CoEncoderFactory.getEncoder(charset ?: Charsets.UTF_8, KtorByteChannelCoAcceptor(this))
+        CoOutputChannel(pipeline).producer()
+    })
+}
+
+/**
  * Make a client call, receiving the response as a stream.  The response must be in the form of a JSON array, and each
  * array item will be deserialized and passed to the `consumer` function as it is received.
  *
@@ -129,15 +195,44 @@ suspend inline fun <reified T : Any> HttpClient.receiveStreamJSON(
     headers: Headers = Headers.Empty,
     expectedStatus: HttpStatusCode = HttpStatusCode.OK,
     config: JSONConfig = JSONConfig.defaultConfig,
-    crossinline consumer: suspend (T) -> Unit
+    noinline consumer: suspend (T) -> Unit
+) {
+    receiveStreamJSON(typeOf<T>(), urlString, method, body, headers, expectedStatus, config, consumer)
+}
+
+/**
+ * Make a client call, receiving the response as a stream.  The response must be in the form of a JSON array, and each
+ * array item will be deserialized and passed to the `consumer` function as it is received.
+ *
+ * @param   T               the type of the array item
+ * @param   type            the type of the array item as a [KType]
+ * @param   urlString       the URL as a [String]
+ * @param   method          the HTTP method (default GET)
+ * @param   body            the request body if required
+ * @param   expectedStatus  the expected response status (default 200 OK)
+ * @param   config          the [JSONConfig] to use when deserializing
+ * @param   consumer        the consumer function (will be called with each array item)
+ */
+suspend fun <T : Any> HttpClient.receiveStreamJSON(
+    type: KType,
+    urlString: String,
+    method: HttpMethod = HttpMethod.Get,
+    body: Any = EmptyContent,
+    headers: Headers = Headers.Empty,
+    expectedStatus: HttpStatusCode = HttpStatusCode.OK,
+    config: JSONConfig = JSONConfig.defaultConfig,
+    consumer: suspend (T) -> Unit
 ) {
     val requestBuilder = HttpRequestBuilder()
     requestBuilder.url.takeFrom(urlString)
     requestBuilder.method = method
     requestBuilder.headers.appendAll(headers)
-    if (body !== EmptyContent)
+    if (body !== EmptyContent) {
         requestBuilder.setBody(body)
-    executeStreamJSON<T>(requestBuilder, expectedStatus, config, consumer)
+        if (!requestBuilder.headers.contains(HttpHeaders.ContentType))
+            requestBuilder.headers[HttpHeaders.ContentType] = applicationJSONString
+    }
+    executeStreamJSON(type, requestBuilder, expectedStatus, config, consumer)
 }
 
 /**
@@ -159,15 +254,44 @@ suspend inline fun <reified T : Any> HttpClient.receiveStreamJSON(
     headers: Headers = Headers.Empty,
     expectedStatus: HttpStatusCode = HttpStatusCode.OK,
     config: JSONConfig = JSONConfig.defaultConfig,
-    crossinline consumer: suspend (T) -> Unit
+    noinline consumer: suspend (T) -> Unit
+) {
+    receiveStreamJSON(typeOf<T>(), url, method, body, headers, expectedStatus, config, consumer)
+}
+
+/**
+ * Make a client call, receiving the response as a stream.  The response must be in the form of a JSON array, and each
+ * array item will be deserialized and passed to the `consumer` function as it is received.
+ *
+ * @param   T               the type of the array item
+ * @param   type            the type of the array item as a [KType]
+ * @param   url             the URL as a [Url]
+ * @param   method          the HTTP method (default GET)
+ * @param   body            the request body if required
+ * @param   expectedStatus  the expected response status (default 200 OK)
+ * @param   config          the [JSONConfig] to use when deserializing
+ * @param   consumer        the consumer function (will be called with each array item)
+ */
+suspend fun <T : Any> HttpClient.receiveStreamJSON(
+    type: KType,
+    url: Url,
+    method: HttpMethod = HttpMethod.Get,
+    body: Any = EmptyContent,
+    headers: Headers = Headers.Empty,
+    expectedStatus: HttpStatusCode = HttpStatusCode.OK,
+    config: JSONConfig = JSONConfig.defaultConfig,
+    consumer: suspend (T) -> Unit
 ) {
     val requestBuilder = HttpRequestBuilder()
     requestBuilder.url.takeFrom(url)
     requestBuilder.method = method
     requestBuilder.headers.appendAll(headers)
-    if (body !== EmptyContent)
+    if (body !== EmptyContent) {
         requestBuilder.setBody(body)
-    executeStreamJSON<T>(requestBuilder, expectedStatus, config, consumer)
+        if (!requestBuilder.headers.contains(HttpHeaders.ContentType))
+            requestBuilder.headers[HttpHeaders.ContentType] = applicationJSONString
+    }
+    executeStreamJSON(type, requestBuilder, expectedStatus, config, consumer)
 }
 
 /**
@@ -176,28 +300,79 @@ suspend inline fun <reified T : Any> HttpClient.receiveStreamJSON(
  * function as it is received.
  *
  * @param   T               the type of the array item
+ * @param   type            the type of the array item as a [KType]
  * @param   expectedStatus  the expected response status (default 200 OK)
  * @param   config          the [JSONConfig] to use when deserializing
  * @param   consumer        the consumer function (will be called with each array item)
  */
-suspend inline fun <reified T : Any> HttpClient.executeStreamJSON(
+@Suppress("UNCHECKED_CAST")
+suspend fun <T : Any> HttpClient.executeStreamJSON(
+    type: KType,
     requestBuilder: HttpRequestBuilder,
     expectedStatus: HttpStatusCode = HttpStatusCode.OK,
     config: JSONConfig = JSONConfig.defaultConfig,
-    crossinline consumer: suspend (T) -> Unit
+    consumer: suspend (T) -> Unit
 ) {
     prepareRequest(requestBuilder).execute { response ->
-        when (response.status) {
-            expectedStatus -> {
-                val pipeline = CoDecoderFactory.getDecoder(config.charset, JSONCoPipeline(simpleCoAcceptor {
-                    val item = JSONDeserializer.deserialize<T>(it, config) ?:
-                    throw JSONKtorException("Streaming array item was null - ${requestBuilder.url}")
+        if (response.status == expectedStatus) {
+            val parsedContentTypeHeader = response.headers.parsedContentTypeHeader()
+            if (parsedContentTypeHeader?.value != applicationJSONString)
+                throw JSONKtorException("Content-Type not $applicationJSONString - ${requestBuilder.url}")
+            val charsetName = parsedContentTypeHeader.getParam("charset") ?: config.charset.name()
+            val pipeline = CoDecoderFactory.getDecoder(
+                charsetName = charsetName,
+                downstream = JSONCoPipeline(simpleCoAcceptor {
+                    val item = JSONDeserializer.deserialize(type, it, config) as T? ?:
+                            throw JSONKtorException("Streaming array item was null - ${requestBuilder.url}")
                     consumer(item)
-                }))
-                response.body<ByteReadChannel>().copyToPipeline(pipeline, config.readBufferSize)
-            }
-            HttpStatusCode.NotFound -> throw NotFoundException("Not found - ${requestBuilder.url}")
-            else -> throw JSONKtorException("Unexpected status code - ${response.status} - ${requestBuilder.url}")
+                }),
+            )
+            response.body<ByteReadChannel>().copyToPipeline(pipeline, config.readBufferSize)
         }
+        else
+            throw JSONKtorClientException(
+                urlString = requestBuilder.url.toString(),
+                statusCode = response.status,
+                responseHeaders = response.headers,
+                responseBody = response.body(),
+                config = config,
+            )
     }
+}
+
+/**
+ * Get the `Content-Type` header, parsed into a [HeaderValue].
+ */
+fun Headers.parsedContentTypeHeader(): HeaderValue? = parseHeaderValue(this[HttpHeaders.ContentType]).firstOrNull()
+
+/**
+ * Get a named parameter value from a header (_e.g._ the `charset` value in `application/json;charset=UTF-8`).
+ */
+fun HeaderValue.getParam(name: String): String? = params.find { it.name.equals(name, ignoreCase = true) }?.value
+
+/**
+ * Copy data from a [ByteReadChannel] to an [IntCoAcceptor].
+ */
+suspend fun ByteReadChannel.copyToPipeline(
+    acceptor: IntCoAcceptor<*>,
+    bufferSize: Int = DEFAULT_BUFFER_SIZE,
+) {
+    val buffer = ByteArray(bufferSize)
+    while (!isClosedForRead) {
+        val bytesRead = readAvailable(buffer, 0, buffer.size)
+        if (bytesRead < 0)
+            break
+        for (i in 0 until bytesRead)
+            acceptor.accept(buffer[i].toInt() and 0xFF)
+    }
+    acceptor.close()
+}
+
+/**
+ * Get a selected generic class type parameter from a Ktor [TypeInfo].
+ */
+fun TypeInfo.getParamType(index: Int = 0): KType {
+    val kType: KType = kotlinType ?: reifiedType.toKType()
+    return kType.arguments.getOrNull(index)?.type ?:
+            throw JSONKtorException("Insufficient type information to deserialize generic class $type")
 }

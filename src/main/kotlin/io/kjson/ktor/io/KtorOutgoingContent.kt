@@ -1,5 +1,5 @@
 /*
- * @(#) JSONDeserializerCoPipeline.kt
+ * @(#) KtorOutgoingContent.kt
  *
  * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
@@ -23,30 +23,27 @@
  * SOFTWARE.
  */
 
-package io.kjson.util
+package io.kjson.ktor.io
 
-import kotlin.reflect.KType
-
-import io.kjson.JSONConfig
-import io.kjson.JSONDeserializer
-import io.kjson.JSONValue
-import net.pwall.pipeline.AbstractCoPipeline
-import net.pwall.pipeline.CoAcceptor
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
+import io.ktor.utils.io.ByteWriteChannel
 
 /**
- * A pipeline implementation to take a [JSONValue] and emit a deserialized object.
+ * A class to write streaming content to a Ktor [OutgoingContent].
  *
  * @author  Peter Wall
  */
-class JSONDeserializerCoPipeline<E, R>(
-    private val type: KType,
-    downstream: CoAcceptor<E, R>,
-    private val config: JSONConfig,
-) : AbstractCoPipeline<JSONValue?, E, R>(downstream) {
+class KtorOutgoingContent(
+    override val contentType: ContentType?,
+    override val status: HttpStatusCode? = null,
+    override val contentLength: Long? = null,
+    private val block: suspend ByteWriteChannel.() -> Unit,
+) : OutgoingContent.WriteChannelContent() {
 
-    override suspend fun acceptObject(value: JSONValue?) {
-        @Suppress("UNCHECKED_CAST")
-        emit(JSONDeserializer.deserialize(type, value, config) as E)
+    override suspend fun writeTo(channel: ByteWriteChannel) {
+        channel.block()
     }
 
 }

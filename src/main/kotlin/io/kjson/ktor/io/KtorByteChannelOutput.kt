@@ -1,7 +1,7 @@
 /*
- * @(#) KtorByteChannelCoAcceptor.kt
+ * @(#) KtorByteChannelOutput.kt
  *
- * kjson-ktor  Reflection-based JSON serialization and deserialization for ktor
+ * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,42 +23,33 @@
  * SOFTWARE.
  */
 
-package io.kjson.util
+package io.kjson.ktor.io
 
 import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.charsets.Charset
+import io.ktor.utils.io.charsets.Charsets
 
-import net.pwall.pipeline.AbstractIntCoAcceptor
-import net.pwall.pipeline.IntCoAcceptor
+import net.pwall.pipeline.codec.CoEncoderFactory
+import net.pwall.util.CoOutputFlushable
 
 /**
- * Implementation of [IntCoAcceptor] to send data to a `ktor` [ByteWriteChannel].
+ * A [CoOutputFlushable] implementation that writes to a Ktor [ByteWriteChannel].
  *
  * @author  Peter Wall
  */
-class KtorByteChannelCoAcceptor(private val channel: ByteWriteChannel) : AbstractIntCoAcceptor<Unit>() {
+class KtorByteChannelOutput(
+    channel: ByteWriteChannel,
+    charset: Charset = Charsets.UTF_8,
+) : CoOutputFlushable() {
 
-    /**
-     * Accept a value, after `closed` check and test for end of data.  Send the value to the [ByteWriteChannel].
-     *
-     * @param   value       the input value
-     */
-    override suspend fun acceptInt(value: Int) {
-        channel.writeByte(value.toByte())
+    private val pipeline = CoEncoderFactory.getEncoder(charset, KtorByteChannelCoAcceptor(channel))
+
+    override suspend fun invoke(ch: Char) {
+        pipeline.accept(ch.code)
     }
 
-    /**
-     * Close the acceptor.
-     */
-    override suspend fun close() {
-        super.close()
-        channel.close(null)
-    }
-
-    /**
-     * Flush the output to the channel.
-     */
     override suspend fun flush() {
-        channel.flush()
+        pipeline.flush()
     }
 
 }

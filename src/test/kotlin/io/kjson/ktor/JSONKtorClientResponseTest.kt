@@ -1,7 +1,7 @@
 /*
  * @(#) JSONKtorClientResponseTest.kt
  *
- * kjson-ktor  Reflection-based JSON serialization and deserialization for ktor
+ * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,7 +26,9 @@
 package io.kjson.ktor
 
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.expect
+import kotlin.test.fail
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -41,8 +43,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLBuilder
 import io.ktor.http.set
 
-import io.kjson.ktor.test.Dummy1
 import io.kjson.stringifyJSON
+import io.kjson.ktor.test.Dummy1
 
 class JSONKtorClientResponseTest {
 
@@ -136,7 +138,7 @@ class JSONKtorClientResponseTest {
             Dummy1("three", 3),
         )
         val mockEngine = MockEngine {
-            respond(responseData.stringifyJSON())
+            respond(responseData.stringifyJSON(), headers = contentTypeJSON())
         }
         val httpClient = HttpClient(mockEngine) {
             install(ContentNegotiation) {
@@ -160,7 +162,7 @@ class JSONKtorClientResponseTest {
             Dummy1("three", 3),
         )
         val mockEngine = MockEngine {
-            respond(responseData.stringifyJSON())
+            respond(responseData.stringifyJSON(), headers = contentTypeJSON())
         }
         val httpClient = HttpClient(mockEngine) {
             install(ContentNegotiation) {
@@ -179,5 +181,35 @@ class JSONKtorClientResponseTest {
             }
         }
     }
+
+    @Test fun `should throw JSONKtorReceiveException on error using streaming interface`() = runBlocking {
+        val errorResponse = ErrorResponse("ERR1", "Error message")
+        val mockEngine = MockEngine {
+            respond(errorResponse.stringifyJSON(), HttpStatusCode.BadRequest, contentTypeJSON())
+        }
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                kjson()
+            }
+        }
+        assertFailsWith<JSONKtorClientException> {
+            httpClient.receiveStreamJSON<Dummy1>("http://example.com/any") {
+                fail("Shouldn't get here")
+            }
+        }.let {
+            expect("Unexpected response status (400 Bad Request) - http://example.com/any") { it.message }
+            expect("http://example.com/any") { it.urlString }
+            expect(HttpStatusCode.BadRequest) { it.statusCode }
+            val responseBody: ErrorResponse = it.body() ?: fail("Response body was null")
+            expect("ERR1") { responseBody.code }
+            expect("Error message") { responseBody.message }
+            expect("""{"code":"ERR1","message":"Error message"}""") { it.bodyAsString() }
+        }
+    }
+
+    data class ErrorResponse(
+        val code: String,
+        val message: String,
+    )
 
 }

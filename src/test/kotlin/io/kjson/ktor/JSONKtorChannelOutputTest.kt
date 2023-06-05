@@ -1,5 +1,5 @@
 /*
- * @(#) JSONDeserializerCoPipeline.kt
+ * @(#) JSONKtorChannelOutputTest.kt
  *
  * kjson-ktor  Reflection-based JSON serialization and deserialization for Ktor
  * Copyright (c) 2023 Peter Wall
@@ -23,30 +23,38 @@
  * SOFTWARE.
  */
 
-package io.kjson.util
+package io.kjson.ktor
 
-import kotlin.reflect.KType
+import kotlin.test.Test
+import kotlin.test.expect
 
-import io.kjson.JSONConfig
-import io.kjson.JSONDeserializer
-import io.kjson.JSONValue
-import net.pwall.pipeline.AbstractCoPipeline
-import net.pwall.pipeline.CoAcceptor
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.call
+import io.ktor.server.response.respondBytesWriter
+import io.ktor.server.routing.get
+import io.ktor.server.routing.routing
+import io.ktor.server.testing.testApplication
 
-/**
- * A pipeline implementation to take a [JSONValue] and emit a deserialized object.
- *
- * @author  Peter Wall
- */
-class JSONDeserializerCoPipeline<E, R>(
-    private val type: KType,
-    downstream: CoAcceptor<E, R>,
-    private val config: JSONConfig,
-) : AbstractCoPipeline<JSONValue?, E, R>(downstream) {
+import net.pwall.util.output
 
-    override suspend fun acceptObject(value: JSONValue?) {
-        @Suppress("UNCHECKED_CAST")
-        emit(JSONDeserializer.deserialize(type, value, config) as E)
+class JSONKtorChannelOutputTest {
+
+    @Test fun `should output using ChannelOutput`() = testApplication {
+        application {
+            routing {
+                get("/x") {
+                    call.respondBytesWriter {
+                        val output = channelOutput(this)
+                        output.output("Works")
+                    }
+                }
+            }
+        }
+        val response = client.get("/x")
+        expect(HttpStatusCode.OK) { response.status }
+        expect("Works") { response.bodyAsText() }
     }
 
 }
