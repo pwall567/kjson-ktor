@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.0] - 2023-06-05
+### Changed
+- `pom.xml`: promoted to version 1.0
+
 ## [0.3] - 2023-05-21
 ### Added
 - `CoOutputChannel`
