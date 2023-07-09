@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.1] - 2023-07-10
+### Changed
+- `pom.xml`: updated version of kjson
+
 ## [1.0] - 2023-06-05
 ### Changed
 - `pom.xml`: promoted to version 1.0
