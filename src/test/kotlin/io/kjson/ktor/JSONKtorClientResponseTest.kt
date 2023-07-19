@@ -43,6 +43,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLBuilder
 import io.ktor.http.set
 
+import io.kjson.JSONStringify.appendJSON
 import io.kjson.stringifyJSON
 import io.kjson.ktor.test.Dummy1
 
@@ -182,7 +183,7 @@ class JSONKtorClientResponseTest {
         }
     }
 
-    @Test fun `should throw JSONKtorReceiveException on error using streaming interface`() = runBlocking {
+    @Test fun `should throw JSONKtorClientException on error using streaming interface`() = runBlocking {
         val errorResponse = ErrorResponse("ERR1", "Error message")
         val mockEngine = MockEngine {
             respond(errorResponse.stringifyJSON(), HttpStatusCode.BadRequest, contentTypeJSON())
@@ -204,6 +205,33 @@ class JSONKtorClientResponseTest {
             expect("ERR1") { responseBody.code }
             expect("Error message") { responseBody.message }
             expect("""{"code":"ERR1","message":"Error message"}""") { it.bodyAsString() }
+        }
+    }
+
+    @Test fun `should receive JSON Lines client data using streaming interface`() = runBlocking {
+        val responseString = buildString {
+            appendJSON(Dummy1("one", 1))
+            append('\n')
+            appendJSON(Dummy1("two", 2))
+            append('\n')
+            appendJSON(Dummy1("three", 3))
+            append('\n')
+        }
+        val mockEngine = MockEngine {
+            respond(responseString, headers = contentTypeJSONLines())
+        }
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                kjson()
+            }
+        }
+        var number = 0
+        httpClient.receiveStreamJSONLines<Dummy1>("/any") {
+            when (number++) {
+                0 -> expect(Dummy1("one", 1)) { it }
+                1 -> expect(Dummy1("two", 2)) { it }
+                2 -> expect(Dummy1("three", 3)) { it }
+            }
         }
     }
 

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>kjson-ktor</artifactId>
-  <version>1.1</version>
+  <version>1.2</version>
   <name>JSON functionality for ktor</name>
   <description>Reflection-based JSON serialization and deserialization for ktor</description>
   <packaging>jar</packaging>
@@ -89,12 +89,6 @@
       <version>5.1.2</version>
     </dependency>
     <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-classic</artifactId>
-      <version>1.2.9</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
       <groupId>io.ktor</groupId>
       <artifactId>ktor-server-jvm</artifactId>
       <version>${ktor.version}</version>
@@ -138,6 +132,12 @@
       <groupId>io.ktor</groupId>
       <artifactId>ktor-client-mock-jvm</artifactId>
       <version>${ktor.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.12</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

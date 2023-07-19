@@ -27,10 +27,10 @@ package io.kjson.ktor
 
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.coroutineContext
 import kotlin.reflect.KType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.produce
@@ -79,8 +79,9 @@ class JSONKtor(
         value: Any?,
     ): OutgoingContent? = when {
         !contentType.match(this.contentType) -> null
-        config.streamOutput -> createStreamedJSONContent(value, contentType, charset, config)
-        else -> TextContent(value.stringifyJSON(config), contentType.withCharset(charset))
+        !config.streamOutput -> TextContent(value.stringifyJSON(config), contentType.withCharset(charset))
+        value is JSONLinesOutput -> createStreamedJSONLinesContent(value, applicationJSONLines, charset, config)
+        else -> createStreamedJSONContent(value, contentType, charset, config)
     }
 
     /**
@@ -119,8 +120,7 @@ class JSONKtor(
         charset: Charset,
         type: KType, // Channel parameter type
         content: ByteReadChannel,
-    ): ReceiveChannel<Any?> = CoroutineScope(Job()).produce(JSONReceiveCoroutineContext(type)) {
-        // TODO check use of CoroutineScope in above line
+    ): ReceiveChannel<Any?> = CoroutineScope(coroutineContext).produce(JSONReceiveCoroutineContext(type)) {
         val pipeline = CoDecoderFactory.getDecoder(
             charset = charset,
             downstream = JSONCoPipeline(

@@ -176,9 +176,39 @@ The above is an over-simplified example; in the real world the code to deseriali
 likely be made conditional on the value of the status code (available at `e.statusCode`).
 It would probably also be wrapped in its own `try ... catch` block.
 
+## JSON Lines
+
+The [JSON Lines](https://jsonlines.org/) specification allows multiple JSON values to be specified in a single stream of
+data, separated by newline (`\u000a`) characters.
+For example, events may be logged to a file as a sequence of objects on separate lines; the alternative would be to
+output a JSON array, but this would require a "`]`" terminator, complicating the shutdown of the process (particularly
+abnormal shutdown).
+
+```json lines
+{"time":"2023-06-24T12:24:10.321+10:00","eventType":"ACCOUNT_OPEN","accountNumber": "123456789"}
+{"time":"2023-06-24T12:24:10.321+10:00","eventType":"DEPOSIT","accountNumber": "123456789","amount":"1000.00"}
+```
+
+### Output JSON Lines
+
+The JSON Lines format is particularly suitable for streaming data, and the `kjson-ktor` library includes functions to
+output JSON Lines data from a `Channel` or a `Flow`:
+```kotlin
+        call.respondLines(channel)
+```
+or:
+```kotlin
+        call.respondLines(flow)
+```
+
+### Receiving JSON Lines
+
+The `receiveStreamJSON` functions have equivalent functions named `receiveStreamJSONLines`; these function operate in an
+identical manner to the original functions except that the input stream is expected to be in JSON Lines form.
+
 ## Dependency Specification
 
-The latest version of the library is 1.1, and it may be obtained from the Maven Central repository.
+The latest version of the library is 1.2, and it may be obtained from the Maven Central repository.
 This version has been built using version 2.2.4 of Ktor.
 
 ### Maven
@@ -186,18 +216,18 @@ This version has been built using version 2.2.4 of Ktor.
     <dependency>
       <groupId>io.kjson</groupId>
       <artifactId>kjson-ktor</artifactId>
-      <version>1.1</version>
+      <version>1.2</version>
     </dependency>
 ```
 ### Gradle
 ```groovy
-    implementation 'io.kjson:kjson-ktor:1.1'
+    implementation 'io.kjson:kjson-ktor:1.2'
 ```
 ### Gradle (kts)
 ```kotlin
-    implementation("io.kjson:kjson-ktor:1.1")
+    implementation("io.kjson:kjson-ktor:1.2")
 ```
 
 Peter Wall
 
-2023-07-10
+2023-07-19
