@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.3] - 2023-10-15
+### Changed
+- `pom.xml`: updated dependency version
+- `pom.xml`: updated Kotlin version to 1.8.22, Ktor version to 2.3.5
+
 ## [1.2] - 2023-07-19
 ### Added
 - `JSONKtorStream`: functions extracted from `JSONKtorFunctions`
