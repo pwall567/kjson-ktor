@@ -29,7 +29,6 @@ import kotlin.reflect.KType
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.flow.Flow
 
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HeaderValue
 import io.ktor.http.Headers
@@ -43,9 +42,15 @@ import io.ktor.serialization.Configuration
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.util.reflect.TypeInfo
+import io.ktor.util.reflect.reifiedType
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.utils.io.charsets.Charset
+
+import io.kstuff.pipeline.IntCoAcceptor
+import io.kstuff.pipeline.codec.CoEncoderFactory
+import io.kstuff.util.CoOutput
 
 import io.kjson.JSONConfig
 import io.kjson.coStringifyJSON
@@ -54,9 +59,6 @@ import io.kjson.ktor.io.KtorByteChannelCoAcceptor
 import io.kjson.ktor.io.KtorByteChannelOutput
 import io.kjson.ktor.io.KtorOutgoingContent
 import io.kjson.util.CoOutputChannel
-import net.pwall.pipeline.IntCoAcceptor
-import net.pwall.pipeline.codec.CoEncoderFactory
-import net.pwall.util.CoOutput
 
 /**
  * Register the `kjson` content converter, configuring the `JSONConfig` with a lambda.
@@ -72,26 +74,6 @@ fun Configuration.kjson(
  * Register the `kjson` content converter, supplying a `JSONConfig`.
  */
 fun Configuration.kjson(
-    config: JSONConfig,
-    contentType: ContentType = ContentType.Application.Json,
-) {
-    register(contentType, JSONKtor(contentType, config))
-}
-
-/**
- * Register the `kjson` client content converter, configuring the `JSONConfig` with a lambda.
- */
-fun ContentNegotiation.Config.kjson(
-    contentType: ContentType = ContentType.Application.Json,
-    block: JSONConfig.() -> Unit = {},
-) {
-    register(contentType, JSONKtor(contentType, JSONConfig(block)))
-}
-
-/**
- * Register the `kjson` client content converter, supplying a `JSONConfig`.
- */
-fun ContentNegotiation.Config.kjson(
     config: JSONConfig,
     contentType: ContentType = ContentType.Application.Json,
 ) {

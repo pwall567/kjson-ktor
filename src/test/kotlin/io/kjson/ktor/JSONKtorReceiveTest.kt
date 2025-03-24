@@ -26,7 +26,6 @@
 package io.kjson.ktor
 
 import kotlin.test.Test
-import kotlin.test.expect
 
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -34,7 +33,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.request.receive
@@ -43,6 +41,10 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 
+import io.kstuff.test.shouldBe
+
+import io.kjson.JSON.asInt
+import io.kjson.JSON.asString
 import io.kjson.ktor.test.Dummy1
 
 class JSONKtorReceiveTest {
@@ -65,8 +67,33 @@ class JSONKtorReceiveTest {
             contentType(ContentType.Application.Json)
             setBody("""{"a":"Fred","b":1}""")
         }
-        expect(HttpStatusCode.OK) { response.status }
-        expect("""{"a":"Fred 1","b":2}""") { response.bodyAsText() }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe """{"a":"Fred 1","b":2}"""
+    }
+
+    @Test fun `should receive JSON POST object using custom`() = testApplication {
+        application {
+            install(ContentNegotiation) {
+                kjson {
+                    readBufferSize = 1280
+                    fromJSONObject {
+                        Dummy1(it["aaa"].asString, it["bbb"].asInt)
+                    }
+                }
+            }
+            routing {
+                post("/xx") {
+                    val content = call.receive<Dummy1>()
+                    call.respond(Dummy1("${content.a} 1", content.b + 1))
+                }
+            }
+        }
+        val response = client.post("/xx") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"aaa":"Fred","bbb":1}""")
+        }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe """{"a":"Fred 1","b":2}"""
     }
 
     @Test fun `should receive generic POST object`() = testApplication {
@@ -87,8 +114,8 @@ class JSONKtorReceiveTest {
             contentType(ContentType.Application.Json)
             setBody("""["alpha","beta","gamma"]""")
         }
-        expect(HttpStatusCode.OK) { response.status }
-        expect("alpha:beta:gamma") { response.bodyAsText() }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe "alpha:beta:gamma"
     }
 
 }

@@ -26,7 +26,6 @@
 package io.kjson.ktor
 
 import kotlin.test.Test
-import kotlin.test.expect
 import kotlinx.coroutines.runBlocking
 
 import io.ktor.client.HttpClient
@@ -41,13 +40,16 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 
+import io.kstuff.test.shouldBe
+
+import io.kjson.JSONObject
 import io.kjson.ktor.test.Dummy1
 
 class JSONKtorClientReceiveTest {
 
     @Test fun `should serialise client request`() = runBlocking {
         val mockEngine = MockEngine {
-            expect("""{"a":"alpha","b":1}""") { String(it.body.toByteArray()) }
+            String(it.body.toByteArray()) shouldBe """{"a":"alpha","b":1}"""
             respond("OK", HttpStatusCode.OK, contentTypeJSON(Charsets.UTF_8))
         }
         val httpClient = HttpClient(mockEngine) {
@@ -59,7 +61,31 @@ class JSONKtorClientReceiveTest {
             contentType(ContentType.Application.Json)
             setBody(Dummy1("alpha", 1))
         }.body()
-        expect("OK") { response }
+        response shouldBe "OK"
+    }
+
+    @Test fun `should serialise client request using custom`() = runBlocking {
+        val mockEngine = MockEngine {
+            String(it.body.toByteArray()) shouldBe """{"aaa":"alpha","bbb":1}"""
+            respond("OK", HttpStatusCode.OK, contentTypeJSON(Charsets.UTF_8))
+        }
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                kjson {
+                    toJSON<Dummy1> {
+                        JSONObject.build {
+                            add("aaa", it.a)
+                            add("bbb", it.b)
+                        }
+                    }
+                }
+            }
+        }
+        val response: String = httpClient.put("/anything") {
+            contentType(ContentType.Application.Json)
+            setBody(Dummy1("alpha", 1))
+        }.body()
+        response shouldBe "OK"
     }
 
 }

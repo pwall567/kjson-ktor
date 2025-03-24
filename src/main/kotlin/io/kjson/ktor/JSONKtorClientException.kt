@@ -27,14 +27,16 @@ package io.kjson.ktor
 
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
-import io.kjson.JSONConfig
-import io.kjson.JSONDeserializer
-import io.kjson.JSONStreamer
+
 import io.ktor.http.Headers
 import io.ktor.http.HttpStatusCode
 
-import net.pwall.pipeline.StringAcceptor
-import net.pwall.pipeline.codec.DecoderFactory
+import io.jstuff.pipeline.StringAcceptor
+import io.jstuff.pipeline.codec.DecoderFactory
+
+import io.kjson.JSONConfig
+import io.kjson.JSONDeserializer
+import io.kjson.JSONStreamer
 
 /**
  * Exception class for errors in `receiveStreamJSON` _etc._

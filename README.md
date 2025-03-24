@@ -1,9 +1,9 @@
 # kjson-ktor
 
-[![Build Status](https://travis-ci.com/pwall567/kjson-ktor.svg?branch=main)](https://app.travis-ci.com/github/pwall567/kjson-ktor)
+[![Build Status](https://github.com/pwall567/kjson-ktor/actions/workflows/build.yml/badge.svg)](https://github.com/pwall567/kjson-ktor/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Kotlin](https://img.shields.io/static/v1?label=Kotlin&message=v1.8.22&color=7f52ff&logo=kotlin&logoColor=7f52ff)](https://github.com/JetBrains/kotlin/releases/tag/v1.8.22)
-[![Maven Central](https://img.shields.io/maven-central/v/io.kjson/kjson-ktor?label=Maven%20Central)](https://search.maven.org/search?q=g:%22io.kjson%22%20AND%20a:%22kjson-ktor%22)
+[![Kotlin](https://img.shields.io/static/v1?label=Kotlin&message=v2.0.21&color=7f52ff&logo=kotlin&logoColor=7f52ff)](https://github.com/JetBrains/kotlin/releases/tag/v2.0.21)
+[![Maven Central](https://img.shields.io/maven-central/v/io.kjson/kjson-ktor?label=Maven%20Central)](https://central.sonatype.com/artifact/io.kjson/kjson-ktor)
 
 This library provides JSON serialization and deserialization for Ktor using the
 [`kjson`](https://github.com/pwall567/kjson) library.
@@ -39,7 +39,7 @@ In the `HttpClient` configuration, specify:
 ```
 (Observant readers will have noted that these lines are identical to those for server configuration.)
 
-Client calls will use `kjson` to serialise outgoing data and deserialise responses:
+Client calls will use `kjson` to serialise outgoing data and deserialise incoming client responses:
 ```kotlin
         val response = client.get("https://my.remote.server/customers/12345")
         val customer: Customer = response.body()
@@ -142,11 +142,11 @@ If a POST or PUT request body is provided, the function will add a `Content-Type
 
 ### Exception Handling
 
-If the response status code is not the one expected, a `JSONKtorReceiveException` will be thrown.
+If the response status code is not the one expected, a `JSONKtorClientException` will be thrown.
 The exception will include information from the `HttpResponse` object, so that the full details of unexpected response
 may be examined.
 
-The properties of `JSONKtorReceiveException` are:
+The properties of `JSONKtorClientException` are:
 
 | Name              | Type             |
 |-------------------|------------------|
@@ -156,7 +156,7 @@ The properties of `JSONKtorReceiveException` are:
 | `responseBody`    | `ByteArray?`     |
 | `config`          | `JSONConfig`     |
 
-The `JSONKtorReceiveException` also has functions to allow access to the response body:
+The `JSONKtorClientException` also has functions to allow access to the response body:
 - `bodyAsString()`: converts to `String` (using the character set in the response `Content-type` header if specified)
 - `body<T>()`: deserialises the body as a JSON object (also using the character set as above)
 
@@ -203,31 +203,31 @@ or:
 
 ### Receiving JSON Lines
 
-The `receiveStreamJSON` functions have equivalent functions named `receiveStreamJSONLines`; these function operate in an
-identical manner to the original functions except that the input stream is expected to be in JSON Lines form.
+The `receiveStreamJSON` functions have equivalent functions named `receiveStreamJSONLines`; these functions operate in
+an identical manner to the original functions except that the input stream is expected to be in JSON Lines form.
 
 ## Dependency Specification
 
-The latest version of the library is 1.3, and it may be obtained from the Maven Central repository.
-This version has been built using version 2.3.5 of Ktor.
+The latest version of the library is 1.4, and it may be obtained from the Maven Central repository.
+This version has been built using version 3.0.3 of Ktor.
 
 ### Maven
 ```xml
     <dependency>
       <groupId>io.kjson</groupId>
       <artifactId>kjson-ktor</artifactId>
-      <version>1.3</version>
+      <version>1.4</version>
     </dependency>
 ```
 ### Gradle
 ```groovy
-    implementation 'io.kjson:kjson-ktor:1.3'
+    implementation 'io.kjson:kjson-ktor:1.4'
 ```
 ### Gradle (kts)
 ```kotlin
-    implementation("io.kjson:kjson-ktor:1.3")
+    implementation("io.kjson:kjson-ktor:1.4")
 ```
 
 Peter Wall
 
-2023-10-15
+2025-03-24

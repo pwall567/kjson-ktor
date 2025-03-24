@@ -26,7 +26,6 @@
 package io.kjson.ktor
 
 import kotlin.test.Test
-import kotlin.test.expect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.produce
@@ -35,12 +34,13 @@ import kotlinx.coroutines.flow.flow
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
+
+import io.kstuff.test.shouldBe
 
 import io.kjson.ktor.test.Dummy1
 
@@ -65,10 +65,9 @@ class JSONKtorRespondLinesTest {
             }
         }
         val response = client.get("/x")
-        expect(HttpStatusCode.OK) { response.status }
-        expect("{\"a\":\"one\",\"b\":111}\n{\"a\":\"two\",\"b\":222}\n{\"a\":\"three\",\"b\":333}\n") {
-            response.bodyAsText()
-        }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe
+                "{\"a\":\"one\",\"b\":111}\n{\"a\":\"two\",\"b\":222}\n{\"a\":\"three\",\"b\":333}\n"
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -92,10 +91,9 @@ class JSONKtorRespondLinesTest {
             }
         }
         val response = client.get("/x")
-        expect(HttpStatusCode.OK) { response.status }
-        expect("{\"a\":\"one\",\"b\":1111}\n{\"a\":\"two\",\"b\":2222}\n{\"a\":\"three\",\"b\":3333}\n") {
-            response.bodyAsText()
-        }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe
+                "{\"a\":\"one\",\"b\":1111}\n{\"a\":\"two\",\"b\":2222}\n{\"a\":\"three\",\"b\":3333}\n"
     }
 
 }

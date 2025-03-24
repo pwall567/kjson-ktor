@@ -26,9 +26,11 @@
 package io.kjson.ktor.io
 
 import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.close
+import io.ktor.utils.io.writeByte
 
-import net.pwall.pipeline.AbstractIntCoAcceptor
-import net.pwall.pipeline.IntCoAcceptor
+import io.kstuff.pipeline.AbstractIntCoAcceptor
+import io.kstuff.pipeline.IntCoAcceptor
 
 /**
  * Implementation of [IntCoAcceptor] to send data to a Ktor [ByteWriteChannel].

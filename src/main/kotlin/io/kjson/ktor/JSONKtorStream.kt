@@ -42,12 +42,13 @@ import io.ktor.http.Url
 import io.ktor.http.takeFrom
 import io.ktor.utils.io.ByteReadChannel
 
+import io.kstuff.pipeline.codec.CoDecoderFactory
+import io.kstuff.pipeline.simpleCoAcceptor
+
 import io.kjson.JSONCoPipeline
 import io.kjson.JSONConfig
 import io.kjson.JSONDeserializer
 import io.kjson.JSONLinesCoPipeline
-import net.pwall.pipeline.codec.CoDecoderFactory
-import net.pwall.pipeline.simpleCoAcceptor
 
 /**
  * Make a client call, receiving the response as a stream.  The response must be in the form of a JSON array, and each

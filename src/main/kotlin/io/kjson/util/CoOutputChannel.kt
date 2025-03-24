@@ -25,8 +25,8 @@
 
 package io.kjson.util
 
-import net.pwall.pipeline.IntCoAcceptor
-import net.pwall.util.CoOutputFlushable
+import io.kstuff.pipeline.IntCoAcceptor
+import io.kstuff.util.CoOutputFlushable
 
 /**
  * A class to accept a byte stream in the manner of a [CoOutputFlushable] and forward it to an [IntCoAcceptor].

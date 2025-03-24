@@ -26,17 +26,16 @@
 package io.kjson.ktor
 
 import kotlin.test.Test
-import kotlin.test.expect
 
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 
-import net.pwall.util.output
+import io.kstuff.test.shouldBe
+import io.kstuff.util.output
 
 class JSONKtorRespondStreamTest {
 
@@ -51,8 +50,8 @@ class JSONKtorRespondStreamTest {
             }
         }
         val response = client.get("/x")
-        expect(HttpStatusCode.OK) { response.status }
-        expect("Works") { response.bodyAsText() }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe "Works"
     }
 
 }

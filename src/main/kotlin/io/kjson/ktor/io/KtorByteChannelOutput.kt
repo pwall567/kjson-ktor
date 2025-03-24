@@ -29,8 +29,8 @@ import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.charsets.Charset
 import io.ktor.utils.io.charsets.Charsets
 
-import net.pwall.pipeline.codec.CoEncoderFactory
-import net.pwall.util.CoOutputFlushable
+import io.kstuff.pipeline.codec.CoEncoderFactory
+import io.kstuff.util.CoOutputFlushable
 
 /**
  * A [CoOutputFlushable] implementation that writes to a Ktor [ByteWriteChannel].

@@ -27,11 +27,12 @@ package io.kjson.util
 
 import kotlin.reflect.KType
 
+import io.kstuff.pipeline.AbstractCoPipeline
+import io.kstuff.pipeline.CoAcceptor
+
 import io.kjson.JSONConfig
 import io.kjson.JSONDeserializer
 import io.kjson.JSONValue
-import net.pwall.pipeline.AbstractCoPipeline
-import net.pwall.pipeline.CoAcceptor
 
 /**
  * A pipeline implementation to take a [JSONValue] and emit a deserialized object.

@@ -27,11 +27,12 @@ package io.kjson.ktor
 
 import kotlinx.coroutines.channels.ReceiveChannel
 
+import io.kstuff.util.CoOutput
+import io.kstuff.util.CoOutputFlushable
+import io.kstuff.util.output
+
 import io.kjson.JSONCoStringify.outputJSON
 import io.kjson.JSONConfig
-import net.pwall.util.CoOutput
-import net.pwall.util.CoOutputFlushable
-import net.pwall.util.output
 
 /**
  * A class to output JSON Lines format from a [ReceiveChannel].

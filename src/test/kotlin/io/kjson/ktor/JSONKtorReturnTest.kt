@@ -26,14 +26,10 @@
 package io.kjson.ktor
 
 import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertNotSame
-import kotlin.test.expect
 
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.respond
@@ -41,7 +37,11 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 
+import io.kstuff.test.shouldBe
+import io.kstuff.test.shouldNotBeSameInstance
+
 import io.kjson.JSONConfig
+import io.kjson.JSONObject
 import io.kjson.ktor.test.Dummy1
 
 class JSONKtorReturnTest {
@@ -62,11 +62,35 @@ class JSONKtorReturnTest {
             }
         }
         val response = client.get("/x")
-        expect(HttpStatusCode.OK) { response.status }
-        expect("""{"a":"Hello","b":876}""") { response.bodyAsText() }
-        expect(1280) { conf.readBufferSize }
-        assertFalse(conf.streamOutput)
-        assertNotSame(conf, JSONConfig.defaultConfig)
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe """{"a":"Hello","b":876}"""
+        conf.readBufferSize shouldBe 1280
+        conf.streamOutput shouldBe false
+        JSONConfig.defaultConfig shouldNotBeSameInstance conf
+    }
+
+    @Test fun `should return JSON object using custom`() = testApplication {
+        application {
+            install(ContentNegotiation) {
+                kjson {
+                    readBufferSize = 1280
+                    toJSON<Dummy1> {
+                        JSONObject.build {
+                            add("aaa", it.a)
+                            add("bbb", it.b)
+                        }
+                    }
+                }
+            }
+            routing {
+                get("/x") {
+                    call.respond(Dummy1("Hello", 876))
+                }
+            }
+        }
+        val response = client.get("/x")
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe """{"aaa":"Hello","bbb":876}"""
     }
 
     @Test fun `should return JSON object using streaming`() = testApplication {
@@ -84,8 +108,8 @@ class JSONKtorReturnTest {
             }
         }
         val response = client.get("/x")
-        expect(HttpStatusCode.OK) { response.status }
-        expect("""{"a":"Hello","b":876}""") { response.bodyAsText() }
+        response.status shouldBe HttpStatusCode.OK
+        response.bodyAsText() shouldBe """{"a":"Hello","b":876}"""
     }
 
 }

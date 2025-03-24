@@ -25,8 +25,9 @@
 
 package io.kjson.ktor
 
+import io.kstuff.util.CoOutput
+
 import io.kjson.JSONConfig
-import net.pwall.util.CoOutput
 
 /**
  * Interface for JSON Lines output classes.

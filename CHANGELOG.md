@@ -2,6 +2,16 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.4] - 2025-03-24
+### Added
+- `build.yml`, `deploy.yml`: converted project to GitHub Actions
+### Changed
+- `pom.xml`: updated dependency versions
+- `pom.xml`: updated Kotlin version to 2.0.21, Ktor version to 3.0.3
+- tests : switched to `should-test` library
+### Removed
+- `.travis.yml`
+
 ## [1.3] - 2023-10-15
 ### Changed
 - `pom.xml`: updated dependency version

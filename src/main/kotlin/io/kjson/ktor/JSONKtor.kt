@@ -47,15 +47,16 @@ import io.ktor.util.reflect.TypeInfo
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.charsets.Charset
 
+import io.kstuff.pipeline.ChannelCoAcceptor
+import io.kstuff.pipeline.codec.CoDecoderFactory
+import io.kstuff.pipeline.simpleCoAcceptor
+
 import io.kjson.JSONConfig
 import io.kjson.JSONCoPipeline
 import io.kjson.JSONCoStreamer
 import io.kjson.JSONDeserializer
 import io.kjson.stringifyJSON
 import io.kjson.util.JSONDeserializerCoPipeline
-import net.pwall.pipeline.ChannelCoAcceptor
-import net.pwall.pipeline.codec.CoDecoderFactory
-import net.pwall.pipeline.simpleCoAcceptor
 
 /**
  * JSON [ContentConverter] for Ktor.  Converts to/from JSON using the [kjson](https://github.com/pwall567/kjson)
@@ -72,7 +73,7 @@ class JSONKtor(
      * Serialize output object to an [OutgoingContent].  Creates a [WriteChannelContent] (streaming) if the
      * `streamOutput` flag is set in the [JSONConfig], otherwise creates a [TextContent] (non-streaming).
      */
-    override suspend fun serializeNullable(
+    override suspend fun serialize(
         contentType: ContentType,
         charset: Charset,
         typeInfo: TypeInfo,
